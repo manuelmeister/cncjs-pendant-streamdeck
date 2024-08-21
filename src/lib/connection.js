@@ -1,4 +1,3 @@
-import io from 'socket.io-client'
 import { ConnectionError } from './connection-error'
 import mitt from 'mitt'
 
@@ -83,7 +82,19 @@ proto.debug = function () {
     console.debug('grbl:settings', data)
   })
   socket.on('gcode:load', function (name, gcode, context) {
-    console.debug('gcode:load', name, gcode.length, context)
+    console.debug(
+      'gcode:load',
+      name,
+      gcode.substring(0, 40),
+      gcode.length,
+      context
+    )
+  })
+  socket.on('file:load', function (code, length, file, visualizer) {
+    console.debug('file:load', code.substring(0, 40), length, file, visualizer)
+  })
+  socket.on('file:unload', function (...args) {
+    console.debug('file:unload', { ...args })
   })
   socket.on('gcode:unload', function () {
     console.debug('gcode:unload')
@@ -106,11 +117,19 @@ proto.openSerialPort = function () {
 }
 
 proto.connect = function () {
-  const { socketAddress, socketPort, secure } = this.options
+  const { socketAddress, socketPort, secure, sender } = this.options
   this.validate()
 
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const url = `${secure ? 'wss' : 'ws'}://${socketAddress}:${socketPort}/`
+
+    let socketio
+    if (sender === 'gsender') {
+      socketio = await import('socket.io-client.gsender')
+    } else {
+      socketio = await import('socket.io-client')
+    }
+    const io = socketio.default
 
     const socket = io.connect(url, {
       query: `token=${this.token}`,
